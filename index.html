@@ -189,7 +189,8 @@
       <p class="muted" style="margin-top:-4px">Her kartta öğrencinin okul numarasını içeren bir QR kod olur. Kesip öğrencilere dağıtın.</p>
       <label for="q-class">Sınıf</label>
       <select id="q-class"></select>
-      <div class="row"><button class="btn pri" id="q-make">Kartları oluştur</button><button class="btn" id="q-print">🖨️ Yazdır</button></div>
+      <div class="row"><button class="btn pri" id="q-make">Kartları oluştur</button></div>
+      <div class="row"><button class="btn" id="q-pdf">📄 PDF indir</button><button class="btn" id="q-print">🖨️ Yazdır</button></div>
       <div id="q-msg" class="msg hide"></div>
     </div>
     <div class="sheet" id="q-sheet"></div>
@@ -222,7 +223,8 @@
   const LIB = {
     jsqr: 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js',
     qrgen: 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',
-    tess: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js'
+    tess: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js',
+    jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
   };
 
   // ---------- Claude (sample) for reading list photos ----------
@@ -380,32 +382,50 @@
     const box = $('#q-msg');
     msg(box, '<span class="spin"></span> Kartlar hazırlanıyor…', 'warn');
     try { await load(LIB.qrgen); } catch (e) { return msg(box, 'QR kütüphanesi yüklenemedi; internet bağlantısını kontrol edin.', 'bad'); }
-    const W = 1240, H = 1754, COLS = 3, ROWS = 5, M = 50;
+    // A4 at 300 dpi. Small cards: 4 x 7 = 28 per page, QR ~22 mm (easy for any phone camera at 10-20 cm)
+    const MM = 300 / 25.4, W = 2480, H = 3508, COLS = 4, ROWS = 7, M = Math.round(10 * MM);
     const cw = (W - 2 * M) / COLS, ch = (H - 2 * M) / ROWS, per = COLS * ROWS;
-    const sheet = $('#q-sheet'); sheet.innerHTML = '';
+    const sheet = $('#q-sheet'); sheet.innerHTML = ''; sheetClass = c.name;
     for (let p = 0; p * per < c.students.length; p++) {
       const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
       const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
       c.students.slice(p * per, (p + 1) * per).forEach((s, i) => {
         const x = M + (i % COLS) * cw, y = M + Math.floor(i / COLS) * ch;
-        g.strokeStyle = '#bbb'; g.setLineDash([10, 8]); g.lineWidth = 2; g.strokeRect(x, y, cw, ch); g.setLineDash([]);
+        g.strokeStyle = '#c8c8c8'; g.setLineDash([18, 14]); g.lineWidth = 3; g.strokeRect(x, y, cw, ch); g.setLineDash([]);
         const q = qrcode(0, 'M'); q.addData(s.no); q.make();
-        const n = q.getModuleCount(), size = Math.min(cw, ch) - 110, cell = Math.floor(size / (n + 2)), qs = cell * (n + 2);
-        const qx = x + (cw - qs) / 2, qy = y + 16;
+        const n = q.getModuleCount(), cell = Math.floor(22 * MM / (n + 4)), qs = cell * (n + 4); // 2-module quiet zone each side
+        const qx = Math.round(x + (cw - qs) / 2), qy = Math.round(y + 2.5 * MM);
         g.fillStyle = '#000';
-        for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) g.fillRect(qx + (k + 1) * cell, qy + (r + 1) * cell, cell, cell);
+        for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) g.fillRect(qx + (k + 2) * cell, qy + (r + 2) * cell, cell, cell);
         g.textAlign = 'center'; g.fillStyle = '#000';
-        g.font = 'bold 34px system-ui,sans-serif'; g.fillText(s.no, x + cw / 2, qy + qs + 34);
-        g.font = '24px system-ui,sans-serif';
-        let nm = s.name || ''; while (nm && g.measureText(nm).width > cw - 24) nm = nm.slice(0, -1);
-        g.fillText(nm + (nm !== (s.name || '') ? '…' : ''), x + cw / 2, qy + qs + 66);
-        g.fillStyle = '#888'; g.font = '18px system-ui,sans-serif'; g.fillText(c.name, x + cw / 2, y + ch - 12);
+        const ty = qy + qs + 4.6 * MM;
+        g.font = `bold ${Math.round(4.2 * MM)}px system-ui,sans-serif`; g.fillText(s.no, x + cw / 2, ty);
+        g.font = `${Math.round(3 * MM)}px system-ui,sans-serif`;
+        let nm = s.name || ''; while (nm && g.measureText(nm + '…').width > cw - 3 * MM) nm = nm.slice(0, -1);
+        g.fillText(nm + (nm !== (s.name || '') ? '…' : ''), x + cw / 2, ty + 4.2 * MM);
+        g.fillStyle = '#999'; g.font = `${Math.round(2.3 * MM)}px system-ui,sans-serif`; g.fillText(c.name, x + cw / 2, y + ch - 1.6 * MM);
       });
       const img = new Image(); img.src = cv.toDataURL('image/png'); img.alt = `QR kartları sayfa ${p + 1}`;
       sheet.appendChild(img);
     }
     const pages = sheet.children.length;
-    msg(box, `✓ ${c.students.length} kart, ${pages} sayfa hazır. Yazdırmak için 🖨️ düğmesini kullanın; çalışmazsa sayfa resmine uzun basıp kaydedin ve oradan yazdırın.`, 'ok');
+    msg(box, `✓ ${c.students.length} kart, ${pages} sayfa hazır. 📄 PDF indir ile kaydedin ya da 🖨️ ile yazdırın.`, 'ok');
+  };
+  let sheetClass = '';
+  $('#q-pdf').onclick = async () => {
+    const box = $('#q-msg'), imgs = [...$('#q-sheet').querySelectorAll('img')];
+    if (!imgs.length) return msg(box, 'Önce kartları oluşturun.', 'bad');
+    msg(box, '<span class="spin"></span> PDF hazırlanıyor…', 'warn');
+    try { await load(LIB.jspdf); } catch (e) { return msg(box, 'PDF aracı yüklenemedi; internet bağlantısını kontrol edin. Yazdır → "PDF olarak kaydet" yolunu da kullanabilirsiniz.', 'bad'); }
+    try {
+      const doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      imgs.forEach((im, i) => { if (i) doc.addPage(); doc.addImage(im.src, 'PNG', 0, 0, 210, 297); });
+      const name = 'QR-kartlar-' + (sheetClass || 'sinif').replace(/[^\wÇĞİÖŞÜçğıöşü-]+/g, '_') + '.pdf';
+      const blob = doc.output('blob'), url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      msg(box, `✓ ${esc(name)} indirildi (${imgs.length} sayfa). İndirilenler klasöründen açıp yazdırabilir veya WhatsApp/e-posta ile gönderebilirsiniz. İnmediyse <a href="${url}" target="_blank" rel="noopener">buraya dokunun</a>.`, 'ok');
+    } catch (e) { msg(box, 'PDF oluşturulamadı. Yazdır → "PDF olarak kaydet" yolunu deneyin.', 'bad'); }
   };
   $('#q-print').onclick = () => {
     if (!$('#q-sheet').children.length) return msg($('#q-msg'), 'Önce kartları oluşturun.', 'bad');
