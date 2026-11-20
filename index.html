@@ -169,9 +169,14 @@
       <label for="c-name">Sınıf adı</label>
       <input type="text" id="c-name" placeholder="Örn. 9-A">
       <label>Sınıf listesinin fotoğrafı</label>
-      <label class="btn big">🖼️ Fotoğraf seç veya çek
-        <input type="file" id="c-img" accept="image/*" class="hide">
-      </label>
+      <div class="row" style="margin-top:0">
+        <label class="btn pri">📷 Fotoğraf çek
+          <input type="file" id="c-cam" accept="image/*" capture="environment" class="hide">
+        </label>
+        <label class="btn">🖼️ Galeriden seç
+          <input type="file" id="c-img" accept="image/*" class="hide">
+        </label>
+      </div>
       <img id="c-prev" class="preview hide" alt="Liste önizleme">
       <div id="c-ocr" class="msg hide"></div>
       <label for="c-text">Öğrenciler (her satıra: <b>numara ad soyad</b>)</label>
@@ -286,7 +291,7 @@
 
   // ---------- classes ----------
   let editId = null;
-  $('#c-img').onchange = async e => {
+  $('#c-img').onchange = $('#c-cam').onchange = async e => {
     const f = e.target.files[0]; if (!f) return; e.target.value = '';
     const prev = $('#c-prev'); prev.src = URL.createObjectURL(f); show(prev);
     const box = $('#c-ocr');
