@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>QR Yoklama</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Yoklama">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
   :root{
     --bg:#f6f7f9; --card:#fff; --ink:#1b1f24; --muted:#667085; --line:#e4e7ec;
@@ -605,6 +612,8 @@
   }
 
   window.addEventListener('pagehide', stopCamera);
+  // install support (home-screen app); silently skipped where not allowed
+  try { if ('serviceWorker' in navigator && location.protocol === 'https:' && window.self === window.top) navigator.serviceWorker.register('/sw.js').catch(() => {}); } catch (e) {}
   window.__test = { parseLines, ocrToLines, codeToNo };
   renderClasses(); renderSelects(); renderHistory();
 })();
