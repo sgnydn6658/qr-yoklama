@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QR Yoklama</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --ink:#1b1f24; --muted:#667085; --line:#e4e7ec;
+    --acc:#2563eb; --acc-ink:#fff; --ok:#15803d; --ok-bg:#dcfce7; --bad:#b91c1c; --bad-bg:#fee2e2; --warn:#a16207; --warn-bg:#fef9c3;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1115; --card:#181b21; --ink:#e7e9ee; --muted:#98a2b3; --line:#2a2f38;
+      --acc:#3b82f6; --ok:#4ade80; --ok-bg:#14301f; --bad:#f87171; --bad-bg:#3a1717; --warn:#facc15; --warn-bg:#3a3110; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line)}
+  .top{display:flex;align-items:center;gap:10px;padding:12px 16px 4px;max-width:760px;margin:0 auto}
+  .top h1{font-size:18px;margin:0}
+  nav{display:flex;gap:4px;padding:6px 12px 10px;max-width:760px;margin:0 auto}
+  nav button{flex:1;border:0;background:transparent;color:var(--muted);padding:10px 6px;border-radius:10px;font-weight:600;font-size:15px}
+  nav button.on{background:var(--acc);color:var(--acc-ink)}
+  main{max-width:760px;margin:0 auto;padding:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+  h2{font-size:17px;margin:0 0 10px}
+  .muted{color:var(--muted);font-size:14px}
+  label{display:block;font-weight:600;font-size:14px;margin:12px 0 6px}
+  input[type=text],select,textarea{width:100%;font:inherit;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+  textarea{min-height:180px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:11px 16px;border-radius:10px;font:inherit;font-weight:600;cursor:pointer}
+  .btn.pri{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+  .btn.big{width:100%;padding:15px;font-size:17px}
+  .btn.danger{color:var(--bad)}
+  .btn:disabled{opacity:.5}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .row .btn{flex:1}
+  .pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:13px;font-weight:600}
+  .list{list-style:none;margin:0;padding:0}
+  .list li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 4px;border-bottom:1px solid var(--line)}
+  .list li:last-child{border-bottom:0}
+  .stu{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+  .stu button{text-align:left;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:8px 10px;font:inherit;font-size:14px;cursor:pointer}
+  .stu button b{display:block;font-size:15px}
+  .stu button.in{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+  .stats{display:flex;gap:8px;margin:10px 0}
+  .stat{flex:1;text-align:center;border-radius:12px;padding:10px;background:var(--bg)}
+  .stat b{display:block;font-size:26px}
+  .video-wrap{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:3/4;max-height:60vh;margin:0 auto}
+  .video-wrap video{width:100%;height:100%;object-fit:cover;display:block}
+  .video-wrap .frame{position:absolute;inset:18%;border:3px solid rgba(255,255,255,.85);border-radius:18px;box-shadow:0 0 0 999px rgba(0,0,0,.25)}
+  .toast{position:absolute;left:10px;right:10px;bottom:10px;padding:12px;border-radius:12px;font-weight:700;text-align:center;font-size:17px;opacity:0;transition:opacity .2s}
+  .toast.show{opacity:1}
+  .flash{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .35s}
+  .flash.ok{background:rgba(34,197,94,.45);opacity:1;transition:none}
+  .flash.warn{background:rgba(234,179,8,.45);opacity:1;transition:none}
+  .recent{list-style:none;margin:8px 0 0;padding:0;font-size:15px}
+  .recent li{padding:6px 2px;border-bottom:1px solid var(--line)}
+  .toast.ok{background:var(--ok-bg);color:var(--ok)} .toast.warn{background:var(--warn-bg);color:var(--warn)}
+  .msg{padding:10px 12px;border-radius:10px;font-size:14px;margin-top:10px}
+  .msg.ok{background:var(--ok-bg);color:var(--ok)} .msg.bad{background:var(--bad-bg);color:var(--bad)} .msg.warn{background:var(--warn-bg);color:var(--warn)}
+  .absent{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;white-space:pre-wrap;background:var(--bg);border-radius:10px;padding:12px;margin-top:8px}
+  .sheet img{width:100%;border:1px solid var(--line);border-radius:6px;margin-bottom:10px;background:#fff}
+  .hide{display:none!important}
+  .preview{max-width:100%;max-height:220px;border-radius:10px;margin-top:10px;display:block}
+  .spin{display:inline-block;width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:s 1s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20}
+  .modal .card{max-width:420px;width:100%}
+  @media print{
+    header,main>*:not(#tab-qr),#tab-qr>*:not(.sheet){display:none!important}
+    body{background:#fff} main{padding:0;max-width:none}
+    .sheet img{border:0;border-radius:0;margin:0;page-break-after:always;width:100%}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="top"><h1>📋 QR Yoklama</h1></div>
+  <nav>
+    <button data-tab="yoklama" class="on">Yoklama</button>
+    <button data-tab="siniflar">Sınıflar</button>
+    <button data-tab="qr">QR Kartlar</button>
+  </nav>
+</header>
+
+<main>
+  <!-- YOKLAMA -->
+  <section id="tab-yoklama">
+    <div class="card" id="y-setup">
+      <h2>Yoklama başlat</h2>
+      <div id="y-noclass" class="msg warn hide">Henüz sınıf yok. Önce <b>Sınıflar</b> sekmesinden liste fotoğrafını yükleyin.</div>
+      <label for="y-class">Sınıf</label>
+      <select id="y-class"></select>
+      <div class="row"><button class="btn pri big" id="y-start">📷 Yoklamayı başlat</button></div>
+    </div>
+
+    <div id="y-run" class="hide">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h2 id="y-title" style="margin:0"></h2>
+          <span class="muted" id="y-date"></span>
+        </div>
+        <div class="stats">
+          <div class="stat"><b id="s-in" style="color:var(--ok)">0</b><span class="muted">Gelen</span></div>
+          <div class="stat"><b id="s-out" style="color:var(--bad)">0</b><span class="muted">Gelmeyen</span></div>
+          <div class="stat"><b id="s-all">0</b><span class="muted">Toplam</span></div>
+        </div>
+
+        <div id="live" class="hide">
+          <div class="video-wrap"><video id="video" playsinline muted></video><div class="frame"></div><div class="flash" id="flash"></div><div class="toast" id="toast"></div></div>
+          <p class="muted" style="text-align:center;margin:8px 0 0">Kartı çerçeveye tutun; okununca bip sesi ve yeşil ışık.</p>
+          <ul class="recent" id="recent"></ul>
+        </div>
+
+        <div id="photo" class="hide">
+          <div id="photo-note" class="msg warn">Burada canlı kamera açılamıyor; her QR için fotoğraf çekin. Android'de tek fotoğrafta birden çok kart okunabilir.</div>
+          <label class="btn pri big" style="margin-top:10px">📸 QR fotoğrafı çek
+            <input type="file" id="photo-in" accept="image/*" capture="environment" class="hide">
+          </label>
+          <div id="photo-res" class="msg hide"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Öğrenciler</h2>
+        <p class="muted" style="margin-top:-4px">Kartını unutan olursa adına dokunarak elle işaretleyebilirsiniz.</p>
+        <div class="stu" id="y-stu"></div>
+        <div id="y-unknown" class="msg warn hide"></div>
+      </div>
+      <div class="row" style="margin-bottom:14px">
+        <button class="btn danger" id="y-cancel">İptal</button>
+        <button class="btn pri" id="y-finish">✅ Yoklamayı bitir</button>
+      </div>
+    </div>
+
+    <div id="y-result" class="hide">
+      <div class="card">
+        <h2 id="r-title"></h2>
+        <div class="stats">
+          <div class="stat"><b id="r-in" style="color:var(--ok)">0</b><span class="muted">Gelen</span></div>
+          <div class="stat"><b id="r-out" style="color:var(--bad)">0</b><span class="muted">Gelmeyen</span></div>
+        </div>
+        <label>Gelmeyenlerin okul numaraları</label>
+        <div class="absent" id="r-nums"></div>
+        <div class="row"><button class="btn pri" id="r-copy-nums">Numaraları kopyala</button><button class="btn" id="r-copy-full">Ad ile kopyala</button></div>
+        <div id="r-copied" class="msg ok hide">Kopyalandı.</div>
+        <div class="row"><button class="btn big" id="r-new">Yeni yoklama</button></div>
+      </div>
+    </div>
+
+    <div class="card" id="history-card">
+      <h2>Geçmiş yoklamalar</h2>
+      <ul class="list" id="history"></ul>
+    </div>
+  </section>
+
+  <!-- SINIFLAR -->
+  <section id="tab-siniflar" class="hide">
+    <div class="card">
+      <h2 id="c-head">Yeni sınıf ekle</h2>
+      <label for="c-name">Sınıf adı</label>
+      <input type="text" id="c-name" placeholder="Örn. 9-A">
+      <label>Sınıf listesinin fotoğrafı</label>
+      <label class="btn big">🖼️ Fotoğraf seç veya çek
+        <input type="file" id="c-img" accept="image/*" class="hide">
+      </label>
+      <img id="c-prev" class="preview hide" alt="Liste önizleme">
+      <div id="c-ocr" class="msg hide"></div>
+      <label for="c-text">Öğrenciler (her satıra: <b>numara ad soyad</b>)</label>
+      <textarea id="c-text" placeholder="101 Ayşe Yılmaz&#10;102 Mehmet Kaya&#10;..."></textarea>
+      <p class="muted">Fotoğraftan okunan liste buraya gelir; hatalı okunan numara varsa düzeltin.</p>
+      <div class="row">
+        <button class="btn hide" id="c-cancel">Vazgeç</button>
+        <button class="btn pri" id="c-save">Sınıfı kaydet</button>
+      </div>
+      <div id="c-msg" class="msg hide"></div>
+    </div>
+    <div class="card">
+      <h2>Kayıtlı sınıflar</h2>
+      <ul class="list" id="classes"></ul>
+    </div>
+  </section>
+
+  <!-- QR -->
+  <section id="tab-qr" class="hide">
+    <div class="card">
+      <h2>Öğrenci QR kartları</h2>
+      <p class="muted" style="margin-top:-4px">Her kartta öğrencinin okul numarasını içeren bir QR kod olur. Kesip öğrencilere dağıtın.</p>
+      <label for="q-class">Sınıf</label>
+      <select id="q-class"></select>
+      <div class="row"><button class="btn pri" id="q-make">Kartları oluştur</button><button class="btn" id="q-print">🖨️ Yazdır</button></div>
+      <div id="q-msg" class="msg hide"></div>
+    </div>
+    <div class="sheet" id="q-sheet"></div>
+  </section>
+</main>
+
+<div class="modal hide" id="modal"><div class="card"><p id="m-text" style="margin-top:0"></p><div class="row"><button class="btn" id="m-no">Vazgeç</button><button class="btn pri" id="m-yes">Evet</button></div></div></div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const show = (el, on = true) => el.classList.toggle('hide', !on);
+  const msg = (el, text, kind) => { el.className = 'msg ' + kind; el.innerHTML = text; show(el, !!text); };
+
+  // ---------- storage ----------
+  const KEY = 'qr-yoklama-v1';
+  let state = { classes: [], sessions: [] };
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.classes) state = s; } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+  const uid = () => Math.random().toString(36).slice(2, 10);
+
+  // ---------- script loader ----------
+  const loaded = {};
+  const load = src => loaded[src] || (loaded[src] = new Promise((ok, no) => {
+    const s = document.createElement('script'); s.src = src; s.onload = ok;
+    s.onerror = () => { delete loaded[src]; no(new Error('yüklenemedi: ' + src)); };
+    document.head.appendChild(s);
+  }));
+  const LIB = {
+    jsqr: 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js',
+    qrgen: 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',
+    tess: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js'
+  };
+
+  // ---------- Claude (sample) for reading list photos ----------
+  let sample = null;
+  try { window.claude && window.claude.use && window.claude.use('sample').then(s => { sample = s; }).catch(() => {}); } catch (e) {}
+
+  // ---------- modal ----------
+  function ask(text) {
+    return new Promise(res => {
+      $('#m-text').textContent = text; show($('#modal'));
+      const done = v => { show($('#modal'), false); $('#m-yes').onclick = $('#m-no').onclick = null; res(v); };
+      $('#m-yes').onclick = () => done(true); $('#m-no').onclick = () => done(false);
+    });
+  }
+
+  // ---------- tabs ----------
+  document.querySelectorAll('nav button').forEach(b => b.onclick = () => tab(b.dataset.tab));
+  function tab(name) {
+    document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+    ['yoklama', 'siniflar', 'qr'].forEach(t => show($('#tab-' + t), t === name));
+    if (name !== 'yoklama') stopCamera();
+    renderSelects();
+  }
+
+  // ---------- parsing ----------
+  function parseLines(text) {
+    const out = [], seen = new Set();
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.trim(); if (!line) continue;
+      const groups = line.match(/\d{1,12}/g); if (!groups) continue;
+      let no = groups[0]; for (const g of groups) if (g.length > no.length) no = g;
+      if (seen.has(no)) continue; seen.add(no);
+      const name = line.replace(/\d+/g, ' ').replace(/[|\t;,]+/g, ' ').replace(/^[\s.\-:)]+/, '').replace(/\s+/g, ' ').trim();
+      out.push({ no, name });
+    }
+    return out;
+  }
+  // OCR text heuristics: per line choose the longest digit group (school no is usually longer than row no)
+  function ocrToLines(text) {
+    const lines = [];
+    for (const raw of text.split(/\r?\n/)) {
+      const groups = raw.match(/\d+/g); if (!groups) continue;
+      let best = groups[0]; for (const g of groups) if (g.length >= best.length) best = g;
+      if (best.length > 12) continue;
+      const name = raw.replace(/[^A-Za-zÇĞİÖŞÜçğıöşüÂâÎîÛû\s]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!name && groups.length === 1 && best.length < 2) continue;
+      lines.push(best + (name ? ' ' + name : ''));
+    }
+    return lines.join('\n');
+  }
+  const codeToNo = t => { const m = String(t).match(/\d{1,12}/); return m ? m[0] : null; };
+
+  // ---------- classes ----------
+  let editId = null;
+  $('#c-img').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return; e.target.value = '';
+    const prev = $('#c-prev'); prev.src = URL.createObjectURL(f); show(prev);
+    const box = $('#c-ocr');
+    msg(box, '<span class="spin"></span> Liste okunuyor…', 'warn');
+    try {
+      const text = await readList(f);
+      if (!text.trim()) throw new Error('Fotoğrafta numara bulunamadı.');
+      const ta = $('#c-text');
+      ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + text.trim();
+      const n = parseLines(ta.value).length;
+      msg(box, `✓ ${n} öğrenci bulundu. Listeyi fotoğrafla karşılaştırıp kontrol edin.`, 'ok');
+    } catch (err) {
+      msg(box, 'Liste otomatik okunamadı (' + esc(err.message || err) + '). Numaraları elle yazabilirsiniz.', 'bad');
+    }
+  };
+
+  async function readList(file) {
+    // 1) Claude, if this page runs inside Claude
+    if (sample) {
+      try {
+        const lim = sample.limits ? await sample.limits() : null;
+        if (!lim || lim.images) {
+          const blob = await shrink(file, 1800);
+          const prompt = 'Bu fotoğraf bir okul sınıf listesidir. Listedeki her öğrencinin OKUL NUMARASINI ve ADI SOYADINI çıkar. ' +
+            'Sıra numarası (1, 2, 3...) ile okul numarasını karıştırma; okul numarası sütununu kullan. Listede olmayan hiçbir şey ekleme. ' +
+            'Yalnızca şu biçimde JSON döndür: [{"no":"1234","ad":"Ad Soyad"}]';
+          const val = await sample.json(prompt, { images: [blob] });
+          const arr = Array.isArray(val) ? val : (val && (val.ogrenciler || val.students || val.items)) || [];
+          const lines = arr.map(o => `${String(o.no || o.numara || '').replace(/\D/g, '')} ${o.ad || o.name || ''}`.trim()).filter(l => /^\d/.test(l));
+          if (lines.length) return lines.join('\n');
+        }
+      } catch (e) { /* fall back to on-device OCR */ }
+    }
+    // 2) On-device OCR (Tesseract)
+    await load(LIB.tess);
+    const r = await Tesseract.recognize(file, 'tur');
+    return ocrToLines(r.data.text || '');
+  }
+
+  function shrink(file, max) {
+    return new Promise((ok, no) => {
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob(b => b ? ok(b) : no(new Error('resim işlenemedi')), 'image/jpeg', 0.88);
+      };
+      img.onerror = () => no(new Error('resim açılamadı'));
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  $('#c-save').onclick = () => {
+    const name = $('#c-name').value.trim();
+    const students = parseLines($('#c-text').value);
+    const box = $('#c-msg');
+    if (!name) return msg(box, 'Sınıf adını yazın.', 'bad');
+    if (!students.length) return msg(box, 'En az bir öğrenci numarası gerekli.', 'bad');
+    if (editId) {
+      const c = state.classes.find(c => c.id === editId); c.name = name; c.students = students;
+    } else state.classes.push({ id: uid(), name, students });
+    save(); resetClassForm();
+    msg(box, `✓ "${esc(name)}" kaydedildi (${students.length} öğrenci).`, 'ok');
+    renderClasses(); renderSelects();
+  };
+  $('#c-cancel').onclick = resetClassForm;
+  function resetClassForm() {
+    editId = null; $('#c-name').value = ''; $('#c-text').value = '';
+    show($('#c-prev'), false); show($('#c-ocr'), false); show($('#c-cancel'), false);
+    $('#c-head').textContent = 'Yeni sınıf ekle'; $('#c-save').textContent = 'Sınıfı kaydet';
+  }
+  function renderClasses() {
+    const ul = $('#classes');
+    if (!state.classes.length) { ul.innerHTML = '<li class="muted">Henüz sınıf yok.</li>'; return; }
+    ul.innerHTML = state.classes.map(c => `<li><div><b>${esc(c.name)}</b><div class="muted">${c.students.length} öğrenci</div></div>
+      <div style="display:flex;gap:6px"><button class="btn" data-edit="${c.id}">Düzenle</button><button class="btn danger" data-del="${c.id}">Sil</button></div></li>`).join('');
+    ul.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
+      const c = state.classes.find(c => c.id === b.dataset.edit); editId = c.id;
+      $('#c-name').value = c.name; $('#c-text').value = c.students.map(s => (s.no + ' ' + s.name).trim()).join('\n');
+      $('#c-head').textContent = 'Sınıfı düzenle'; $('#c-save').textContent = 'Değişiklikleri kaydet'; show($('#c-cancel'));
+      show($('#c-msg'), false); window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    ul.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+      const c = state.classes.find(c => c.id === b.dataset.del);
+      if (!await ask(`"${c.name}" sınıfı silinsin mi?`)) return;
+      state.classes = state.classes.filter(x => x !== c); save(); renderClasses(); renderSelects();
+    });
+  }
+  function renderSelects() {
+    const opts = state.classes.map(c => `<option value="${c.id}">${esc(c.name)} (${c.students.length})</option>`).join('');
+    for (const id of ['#y-class', '#q-class']) { const s = $(id), v = s.value; s.innerHTML = opts; if (v) s.value = v; }
+    show($('#y-noclass'), !state.classes.length);
+    $('#y-start').disabled = $('#q-make').disabled = !state.classes.length;
+  }
+
+  // ---------- QR cards ----------
+  $('#q-make').onclick = async () => {
+    const c = state.classes.find(c => c.id === $('#q-class').value); if (!c) return;
+    const box = $('#q-msg');
+    msg(box, '<span class="spin"></span> Kartlar hazırlanıyor…', 'warn');
+    try { await load(LIB.qrgen); } catch (e) { return msg(box, 'QR kütüphanesi yüklenemedi; internet bağlantısını kontrol edin.', 'bad'); }
+    const W = 1240, H = 1754, COLS = 3, ROWS = 5, M = 50;
+    const cw = (W - 2 * M) / COLS, ch = (H - 2 * M) / ROWS, per = COLS * ROWS;
+    const sheet = $('#q-sheet'); sheet.innerHTML = '';
+    for (let p = 0; p * per < c.students.length; p++) {
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+      const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+      c.students.slice(p * per, (p + 1) * per).forEach((s, i) => {
+        const x = M + (i % COLS) * cw, y = M + Math.floor(i / COLS) * ch;
+        g.strokeStyle = '#bbb'; g.setLineDash([10, 8]); g.lineWidth = 2; g.strokeRect(x, y, cw, ch); g.setLineDash([]);
+        const q = qrcode(0, 'M'); q.addData(s.no); q.make();
+        const n = q.getModuleCount(), size = Math.min(cw, ch) - 110, cell = Math.floor(size / (n + 2)), qs = cell * (n + 2);
+        const qx = x + (cw - qs) / 2, qy = y + 16;
+        g.fillStyle = '#000';
+        for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) g.fillRect(qx + (k + 1) * cell, qy + (r + 1) * cell, cell, cell);
+        g.textAlign = 'center'; g.fillStyle = '#000';
+        g.font = 'bold 34px system-ui,sans-serif'; g.fillText(s.no, x + cw / 2, qy + qs + 34);
+        g.font = '24px system-ui,sans-serif';
+        let nm = s.name || ''; while (nm && g.measureText(nm).width > cw - 24) nm = nm.slice(0, -1);
+        g.fillText(nm + (nm !== (s.name || '') ? '…' : ''), x + cw / 2, qy + qs + 66);
+        g.fillStyle = '#888'; g.font = '18px system-ui,sans-serif'; g.fillText(c.name, x + cw / 2, y + ch - 12);
+      });
+      const img = new Image(); img.src = cv.toDataURL('image/png'); img.alt = `QR kartları sayfa ${p + 1}`;
+      sheet.appendChild(img);
+    }
+    const pages = sheet.children.length;
+    msg(box, `✓ ${c.students.length} kart, ${pages} sayfa hazır. Yazdırmak için 🖨️ düğmesini kullanın; çalışmazsa sayfa resmine uzun basıp kaydedin ve oradan yazdırın.`, 'ok');
+  };
+  $('#q-print').onclick = () => {
+    if (!$('#q-sheet').children.length) return msg($('#q-msg'), 'Önce kartları oluşturun.', 'bad');
+    try { window.print(); } catch (e) {}
+  };
+
+  // ---------- attendance ----------
+  let run = null; // {cls, present:Set, unknown:Set, start}
+  let stream = null, detector = null, raf = 0, lastCode = '', lastAt = 0, audio = null;
+  const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+  $('#y-start').onclick = async () => {
+    const cls = state.classes.find(c => c.id === $('#y-class').value); if (!cls) return;
+    run = { cls, present: new Set(), unknown: new Set(), start: Date.now() };
+    try { audio = new (window.AudioContext || window.webkitAudioContext)(); audio.resume && audio.resume(); } catch (e) { audio = null; }
+    recent = []; $('#recent').innerHTML = '';
+    $('#y-title').textContent = cls.name;
+    $('#y-date').textContent = new Date().toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short' });
+    show($('#y-setup'), false); show($('#y-result'), false); show($('#history-card'), false); show($('#y-run'));
+    renderRun();
+    if ('BarcodeDetector' in window) {
+      try { const f = await BarcodeDetector.getSupportedFormats(); if (f.includes('qr_code')) detector = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) {}
+    }
+    if (!detector) load(LIB.jsqr).catch(() => {});
+    await startCamera();
+  };
+
+  async function startCamera() {
+    show($('#live'), false); show($('#photo'), false);
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('no camera api');
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }, audio: false });
+      const v = $('#video'); v.srcObject = stream; await v.play();
+      try { const tr = stream.getVideoTracks()[0], cap = tr.getCapabilities ? tr.getCapabilities() : {};
+        if (cap.focusMode && cap.focusMode.includes('continuous')) await tr.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
+      show($('#live')); tick();
+    } catch (e) {
+      stream = null;
+      let why = 'Canlı kamera açılamadı; her QR için fotoğraf çekin.';
+      let inFrame = false; try { inFrame = window.self !== window.top; } catch (x) { inFrame = true; }
+      if (inFrame) why = 'Claude içinde canlı kamera açılamıyor. Hızlı (canlı) okutma için uygulamayı kendi linkinden açın. Şimdilik her QR için fotoğraf çekin.';
+      else if (!window.isSecureContext) why = 'Kamera yalnızca https:// ile açılan sayfalarda çalışır. Şimdilik her QR için fotoğraf çekin.';
+      else if (e && e.name === 'NotAllowedError') why = 'Kamera izni verilmedi. Tarayıcı ayarlarından bu siteye kamera izni verip yoklamayı yeniden başlatın.';
+      $('#photo-note').textContent = why;
+      show($('#photo'));
+    }
+  }
+  function stopCamera() {
+    cancelAnimationFrame(raf); raf = 0;
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  }
+
+  let busy = false, lastScan = 0;
+  async function tick() {
+    raf = requestAnimationFrame(tick);
+    const v = $('#video'); if (busy || !stream || v.readyState < 2) return;
+    const now = performance.now(); if (now - lastScan < (detector ? 60 : 40)) return; lastScan = now;
+    busy = true;
+    try {
+      const codes = await decode(v, v.videoWidth, v.videoHeight, true);
+      codes.forEach(handleCode);
+    } catch (e) {} finally { busy = false; }
+  }
+
+  async function decode(src, w, h, live) {
+    if (detector) { const r = await detector.detect(src); return r.map(x => x.rawValue); }
+    if (!window.jsQR) { try { await load(LIB.jsqr); } catch (e) { return []; } }
+    // live: scan only the centre square (where the frame is) at low resolution -> fast on every phone
+    let sx = 0, sy = 0, sw = w, sh = h;
+    if (live) { const side = Math.min(w, h) * 0.8; sx = (w - side) / 2; sy = (h - side) / 2; sw = sh = side; }
+    const k = Math.min(1, (live ? 520 : 800) / Math.max(sw, sh));
+    canvas.width = Math.round(sw * k); canvas.height = Math.round(sh * k);
+    ctx.drawImage(src, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    const d = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const r = jsQR(d.data, d.width, d.height, { inversionAttempts: 'dontInvert' });
+    return r && r.data ? [r.data] : [];
+  }
+
+  function handleCode(raw, fromPhoto) {
+    if (!run) return null;
+    const no = codeToNo(raw); if (!no) return null;
+    const t = Date.now();
+    if (!fromPhoto && no === lastCode && t - lastAt < 2500) return null;
+    lastCode = no; lastAt = t;
+    const s = run.cls.students.find(s => s.no === no);
+    let res;
+    if (!s) { run.unknown.add(no); res = { kind: 'warn', text: `⚠️ ${no} bu sınıf listesinde yok` }; beep(220); }
+    else if (run.present.has(no)) { res = { kind: 'ok', text: `${s.name || no} zaten okutuldu` }; }
+    else { run.present.add(no); res = { kind: 'ok', text: `✓ ${s.name || ''} (${no})` }; beep(880); try { navigator.vibrate && navigator.vibrate(80); } catch (e) {} }
+    toast(res); flash(res.kind); addRecent(res); renderRun(); return res;
+  }
+
+  function beep(f) {
+    if (!audio) return;
+    try { const o = audio.createOscillator(), g = audio.createGain(); o.frequency.value = f; g.gain.value = 0.15;
+      o.connect(g); g.connect(audio.destination); o.start(); o.stop(audio.currentTime + 0.12); } catch (e) {}
+  }
+  let recent = [];
+  function addRecent(r) { recent.unshift(r.text); recent = recent.slice(0, 4); $('#recent').innerHTML = recent.map(t => `<li>${esc(t)}</li>`).join(''); }
+  function flash(kind) { const f = $('#flash'); f.className = 'flash ' + kind; requestAnimationFrame(() => requestAnimationFrame(() => { f.className = 'flash'; })); }
+  let toastT = 0;
+  function toast(r) { const el = $('#toast'); el.className = 'toast show ' + r.kind; el.textContent = r.text; clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 1600); }
+
+  $('#photo-in').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return; e.target.value = '';
+    const box = $('#photo-res'); msg(box, '<span class="spin"></span> Okunuyor…', 'warn');
+    try {
+      const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = URL.createObjectURL(f); });
+      let codes = await decode(img, img.naturalWidth, img.naturalHeight);
+      if (!codes.length && !detector) { // retry larger for small codes
+        const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+        canvas.width = img.naturalWidth * k; canvas.height = img.naturalHeight * k; ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const d = ctx.getImageData(0, 0, canvas.width, canvas.height); const r = window.jsQR && jsQR(d.data, d.width, d.height);
+        if (r) codes = [r.data];
+      }
+      if (!codes.length) return msg(box, 'QR kod bulunamadı. Kartı biraz daha yakından ve net çekin.', 'bad');
+      const out = codes.map(c => handleCode(c, true)).filter(Boolean);
+      msg(box, out.map(r => esc(r.text)).join('<br>') || 'Okundu.', out.some(r => r.kind === 'warn') ? 'warn' : 'ok');
+    } catch (err) { msg(box, 'Fotoğraf okunamadı.', 'bad'); }
+  };
+
+  function renderRun() {
+    const { cls, present, unknown } = run;
+    $('#s-in').textContent = present.size; $('#s-out').textContent = cls.students.length - present.size; $('#s-all').textContent = cls.students.length;
+    const grid = $('#y-stu');
+    grid.innerHTML = cls.students.map(s => `<button data-no="${esc(s.no)}" class="${present.has(s.no) ? 'in' : ''}"><b>${esc(s.no)}</b>${esc(s.name || '')}</button>`).join('');
+    grid.querySelectorAll('button').forEach(b => b.onclick = () => { const n = b.dataset.no; present.has(n) ? present.delete(n) : present.add(n); renderRun(); });
+    const u = $('#y-unknown');
+    show(u, unknown.size > 0); u.textContent = unknown.size ? 'Listede olmayan okutulan numaralar: ' + [...unknown].join(', ') : '';
+  }
+
+  $('#y-cancel').onclick = async () => { if (await ask('Yoklama iptal edilsin mi? Okutulanlar kaydedilmez.')) endRun(false); };
+  $('#y-finish').onclick = () => endRun(true);
+
+  function endRun(keep) {
+    stopCamera();
+    if (keep && run) {
+      const absent = run.cls.students.filter(s => !run.present.has(s.no));
+      const ses = { id: uid(), classId: run.cls.id, className: run.cls.name, at: run.start, total: run.cls.students.length,
+        present: [...run.present], absent: absent.map(s => ({ no: s.no, name: s.name })) };
+      state.sessions.unshift(ses); state.sessions = state.sessions.slice(0, 200); save();
+      showResult(ses);
+    } else { show($('#y-setup')); show($('#history-card')); }
+    show($('#y-run'), false); run = null; renderHistory();
+  }
+
+  let current = null;
+  function showResult(ses) {
+    current = ses;
+    $('#r-title').textContent = `${ses.className} · ${new Date(ses.at).toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short' })}`;
+    $('#r-in').textContent = ses.total - ses.absent.length; $('#r-out').textContent = ses.absent.length;
+    $('#r-nums').textContent = ses.absent.length ? ses.absent.map(s => s.no).join(', ') : 'Herkes burada 🎉';
+    show($('#r-copied'), false);
+    show($('#y-setup'), false); show($('#y-run'), false); show($('#y-result')); show($('#history-card'));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  async function copy(text) {
+    try { await navigator.clipboard.writeText(text); msg($('#r-copied'), 'Kopyalandı.', 'ok'); }
+    catch (e) { msg($('#r-copied'), 'Kopyalanamadı; yukarıdaki numaraları seçip elle kopyalayın.', 'warn'); }
+  }
+  $('#r-copy-nums').onclick = () => current && copy(current.absent.map(s => s.no).join(', '));
+  $('#r-copy-full').onclick = () => current && copy(`${current.className} – ${new Date(current.at).toLocaleDateString('tr-TR')} – Gelmeyenler (${current.absent.length}):\n` +
+    current.absent.map(s => `${s.no} ${s.name}`.trim()).join('\n'));
+  $('#r-new').onclick = () => { show($('#y-result'), false); show($('#y-setup')); };
+
+  function renderHistory() {
+    const ul = $('#history');
+    if (!state.sessions.length) { ul.innerHTML = '<li class="muted">Henüz yoklama alınmadı.</li>'; return; }
+    ul.innerHTML = state.sessions.slice(0, 30).map(s => `<li><div><b>${esc(s.className)}</b>
+      <div class="muted">${new Date(s.at).toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short' })} · ${s.absent.length} gelmeyen / ${s.total}</div></div>
+      <div style="display:flex;gap:6px"><button class="btn" data-open="${s.id}">Aç</button><button class="btn danger" data-rm="${s.id}">Sil</button></div></li>`).join('');
+    ul.querySelectorAll('[data-open]').forEach(b => b.onclick = () => showResult(state.sessions.find(s => s.id === b.dataset.open)));
+    ul.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => {
+      if (!await ask('Bu yoklama kaydı silinsin mi?')) return;
+      state.sessions = state.sessions.filter(s => s.id !== b.dataset.rm); save(); renderHistory();
+    });
+  }
+
+  window.addEventListener('pagehide', stopCamera);
+  window.__test = { parseLines, ocrToLines, codeToNo };
+  renderClasses(); renderSelects(); renderHistory();
+})();
+</script>
+</body>
+</html>
